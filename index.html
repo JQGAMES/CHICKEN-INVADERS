@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHICKEN INVADERS</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0 0 25px 0; /* Erhöhter padding-bottom für Copyright-Text */
+            font-family: 'Times New Roman', serif;
+            background-color: #333;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .game-container {
+            width: 90vw;
+            max-width: 800px;
+            height: 90vh;
+            max-height: 900px;
+            border: 5px solid black;
+            box-sizing: border-box; /* Ensures padding/border are included in width/height */
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+            transition: background-color 0.5s ease-in-out;
+            align-items: center; /* Zentriert Inhalte horizontal */
+            justify-content: space-between; /* Verteilt Inhalte vertikal, schiebt Copyright nach unten */
+        }
+
+        /* Generelle Screen-Stile für Überlagerungen */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        /* Hauptbildschirme */
+        #start-screen, #game-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 11;
+        }
+        #game-screen {
+            background-color: transparent;
+            z-index: 1;
+            justify-content: flex-start; /* Elements align to top within game-screen */
+            padding-top: 10px;
+            padding-bottom: 10px; /* Beibehalten, falls interne Elemente dies benötigen */
+            flex-grow: 1; /* Erlaubt #game-screen, den verfügbaren Platz im game-container einzunehmen */
+        }
+
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: clamp(1.5rem, 5vw, 3rem);
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 2px solid black;
+            background-color: #444;
+            color: white;
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        button {
+            background-color: #555;
+            color: white;
+            border: 2px solid black;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            margin: 10px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        button:hover {
+            background-color: #777;
+        }
+
+        .game-info {
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            font-size: clamp(0.8rem, 2vw, 1.2rem);
+            border-bottom: 2px solid black;
+            margin-bottom: 10px;
+        }
+
+        #game-area {
+            flex-grow: 1; /* Takes the remaining space */
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        #countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(4rem, 15vw, 10rem);
+            color: darkred;
+            z-index: 50;
+            text-shadow: 2px 2px 5px black;
+        }
+
+        #player-ship {
+            position: absolute;
+            bottom: 20px;
+            font-size: clamp(2rem, 8vw, 4rem);
+            z-index: 10;
+        }
+
+        .player-bullet {
+            position: absolute;
+            width: 10px;
+            height: 22px;
+            z-index: 5;
+        }
+
+        /* Bullet colors */
+        .player-bullet.purple { background-color: purple; }
+        .player-bullet.yellow { background-color: yellow; }
+        .player-bullet.red { background-color: red; }
+        .player-bullet.white { background-color: white; }
+        .player-bullet.orange { background-color: orange; }
+        .player-bullet.gray { background-color: gray; }
+        .player-bullet.brown { background-color: brown; }
+        .player-bullet.pink { background-color: hotpink; }
+
+
+        .enemy {
+            position: absolute;
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            z-index: 6;
+        }
+
+        .boss {
+            font-size: clamp(3rem, 15vw, 7rem); /* Angepasst für größere Größe */
+        }
+
+        .enemy-bullet {
+            position: absolute;
+            background-color: transparent;
+            width: auto;
+            height: auto;
+            font-size: clamp(0.75rem, 3vw, 1.5rem);
+            z-index: 4;
+        }
+
+        .explosion {
+            position: absolute;
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            z-index: 7;
+            animation: fadeOut 0.5s forwards;
+        }
+
+        .item {
+            position: absolute;
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            z-index: 8;
+        }
+
+        .item-pickup {
+            position: absolute;
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            z-index: 9;
+            animation: fadeOut 0.5s forwards;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 0;
+            gap: 20px;
+            border-top: 2px solid black;
+            margin-top: 10px;
+        }
+
+        .controls button {
+            font-size: clamp(1.5rem, 6vw, 2.5rem);
+            padding: 10px 25px;
+        }
+
+        .game-buttons {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 0;
+            gap: 10px;
+            border-top: 2px solid black;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .game-buttons button {
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+            padding: 6px 12px;
+            min-width: 80px;
+        }
+
+        .copyright-text {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #ccc;
+            padding: 5px;
+            /* margin-top: auto; REMOVED: Managed by game-container flex now */
+            flex-shrink: 0; /* Prevents it from shrinking */
+            width: 100%; /* Stellt sicher, dass es die volle Breite einnimmt */
+        }
+
+        #game-over-screen .game-over-text {
+            color: darkred;
+            font-size: clamp(2rem, 10vw, 5rem);
+            animation: pulse 1s infinite alternate;
+        }
+
+        #game-over-screen .game-over-image {
+            font-size: clamp(4rem, 15vw, 10rem);
+            margin-top: 20px;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        #highscore-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            color: white;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        #highscore-list li {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #555;
+            padding-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #highscore-list li .ship-emoji {
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
+
+        #highscore-list li span:last-child {
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+
+        #ship-selection-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 15;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .ship-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            max-width: 80%;
+        }
+
+        .ship-option {
+            background-color: #444;
+            border: 2px solid #666;
+            padding: 5px;
+            border-radius: 8鳴px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+        }
+
+        .ship-option:hover {
+            transform: scale(1.05);
+            border-color: #fff;
+        }
+
+        .ship-option span {
+            font-size: clamp(1.8rem, 7vw, 2.5rem);
+            line-height: 1;
+        }
+
+        .ship-option p {
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="start-screen" class="overlay-screen">
+            <h1>CHICKEN INVADERS</h1>
+            <input type="text" id="player-name-input" placeholder="Gib deinen Namen ein" maxlength="15">
+            <button id="start-game-button">Spiel starten</button>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div class="game-info">
+                <span id="player-name-display"></span>
+                <span id="score-display">Punkte: 0</span>
+                <span id="life-display">Leben: 5</span>
+            </div>
+            <div id="game-area">
+                <div id="countdown"></div>
+                <div id="player-ship">👾</div>
+
+                <div id="game-over-screen" class="overlay-screen hidden">
+                    <h1 class="game-over-text">GAME OVER</h1>
+                    <p id="final-score"></p>
+                    <div class="game-over-image">🪦</div> </div>
+
+                <div id="highscore-screen" class="overlay-screen hidden">
+                    <h2>HIGHSCORE</h2>
+                    <ol id="highscore-list"></ol>
+                    <button id="highscore-close-button">Schließen</button>
+                </div>
+
+                <div id="ship-selection-screen" class="overlay-screen hidden">
+                    <h2>NEUES SCHIFF</h2>
+                    <div class="ship-options">
+                        <div class="ship-option" data-ship-id="default">
+                            <span>👾</span>
+                            <p>Standard</p>
+                        </div>
+                        <div class="ship-option" data-ship-id="skull">
+                            <span>☠️</span>
+                            <p>Todes-Schiff</p>
+                        </div>
+                        <div class="ship-option" data-ship-id="moose">
+                            <span>🫎</span>
+                            <p>Elch-Jäger</p>
+                        </div>
+                        <div class="ship-option" data-ship-id="fork">
+                            <span>🍴</span>
+                            <p>Gabel-Jäger</p>
+                        </div>
+                        <div class="ship-option" data-ship-id="doll">
+                            <span>🪆</span>
+                            <p>Püppchen</p>
+                        </div>
+                        <div class="ship-option" data-ship-id="poop">
+                            <span>💩</span>
+                            <p>Kacki-Schiff</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="controls">
+                <button id="move-left">⬅️</button>
+                <button id="move-right">➡️</button>
+            </div>
+            <div class="game-buttons">
+                <button id="restart-game-button">NEUSTART</button>
+                <button id="change-name-button">NAME ÄNDERN</button>
+                <button id="show-highscore-button">HIGHSCORE</button>
+            </div>
+        </div>
+        <div class="copyright-text">copyright 2025 JQ GAMES</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startScreen = document.getElementById('start-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const gameOverScreen = document.getElementById('game-over-screen');
+            const highscoreScreen = document.getElementById('highscore-screen');
+            const shipSelectionScreen = document.getElementById('ship-selection-screen');
+
+            const playerNameInput = document.getElementById('player-name-input');
+            const startGameButton = document.getElementById('start-game-button');
+            const playerNameDisplay = document.getElementById('player-name-display');
+            const scoreDisplay = document.getElementById('score-display');
+            const lifeDisplay = document.getElementById('life-display');
+            const gameArea = document.getElementById('game-area');
+            const countdownElement = document.getElementById('countdown');
+            const playerShip = document.getElementById('player-ship');
+            const moveLeftButton = document.getElementById('move-left');
+            const moveRightButton = document.getElementById('move-right');
+
+            // Buttons below game area
+            const restartGameButton = document.getElementById('restart-game-button');
+            const changeNameButton = document.getElementById('change-name-button');
+            const showHighscoreButton = document.getElementById('show-highscore-button');
+
+            // Highscore Close Button (still on highscore screen)
+            const highscoreCloseButton = document.getElementById('highscore-close-button');
+
+            const finalScoreElement = document.getElementById('final-score');
+            const highscoreList = document.getElementById('highscore-list');
+
+            // Ship selection elements
+            const shipOptions = document.querySelectorAll('.ship-option');
+
+            let playerName = "Spieler";
+            let score = 0;
+            let playerLife = 5;
+            let gameInterval;
+            let playerBulletInterval;
+            let enemySpawnInterval;
+            let itemSpawnInterval;
+            let gameRunning = false;
+            let invincible = false;
+            let currentWave = 0;
+            let highscoreSavedForCurrentGame = false;
+            let lifeEarnedAt500 = false; // NEW: Flag to track 500 points life
+
+            let currentShipEmoji = '👾'; // Stores the currently selected ship emoji
+
+            // Player ship properties
+            const playerSpeed = 7;
+            let playerX; // Stores the left position relative to gameArea
+
+            // Bullet properties
+            const defaultBulletSpeed = 7;
+            const defaultBulletStrength = 1;
+            let currentBulletSpeed = defaultBulletSpeed;
+            let currentBulletStrength = defaultBulletStrength;
+            let currentBulletColor = 'purple';
+
+            // NEW: Multi-shot variables
+            let multiShotLevel = 1; // 1 for single, 2 for double, 3 for triple (now up to 5)
+            const speedUpgradeScore = 100; // Punkte für doppelter Geschwindigkeit
+            const multiShot4Score = 200; // Punkte für 4fach-Schuss
+            const multiShot5Score = 350; // Punkte für 5fach-Schuss + doppelter Geschwindigkeit
+            const extraLifeScore = 500; // Punkte für 1 Extra Leben
+
+
+            // NEW: Active item effects
+            let activeItemEffects = {
+                yellowShot: { active: false, timer: null, duration: 8000 },
+                redShot: { active: false, timer: null, duration: 3000 },
+                invincible: { active: false, timer: null, duration: 6000 }
+            };
+
+            // Game objects arrays
+            let enemies = [];
+            let playerBullets = [];
+            let enemyBullets = [];
+            let items = [];
+
+            // Enemy types
+            const enemyTypes = {
+                egg: { emoji: '🥚', life: 1, shootSpeed: 0.25, frequency: 0.60, points: 1 },
+                chick: { emoji: '🐣', life: 1, shootSpeed: 0.5, frequency: 0.20, points: 2 },
+                youngChicken: { emoji: '🐤', life: 2, shootSpeed: 0.25, frequency: 0.15, points: 3 }, // Hinzugefügtes Emoji
+                chicken: { emoji: '🐔', life: 2, shootSpeed: 0.75, frequency: 0.05, points: 5 },
+                // NEU: Boss Definition
+                bossChicken: { emoji: '🐓', life: 10, shootSpeed: 2, frequency: 0, points: 10, isBoss: true }
+            };
+
+            // Item types
+            const itemTypes = {
+                lifePlus: { emoji: '🍀', effect: 'life+1' },
+                yellowShot: { emoji: '🌼', effect: 'yellowShot', duration: 8000 },
+                lifeMinus: { emoji: '🦠', effect: 'life-1' },
+                invincible: { emoji: '🐚', effect: 'invincible', duration: 6000 },
+                redShot: { emoji: '🍁', effect: 'redShot', duration: 3000 },
+                balloon: { emoji: '🎈', effect: 'balloon' }
+            };
+
+            // Highscore
+            let highscores = JSON.parse(localStorage.getItem('chickenInvadersHighscores')) || [];
+
+            // Boss-spezifische Variablen
+            let bossCurrentLife = enemyTypes.bossChicken.life;
+            let bossCurrentShootSpeed = enemyTypes.bossChicken.shootSpeed;
+            let bossCurrentShootInterval = 1000 / bossCurrentShootSpeed;
+            let bossActive = false;
+
+            // NEW: Ship specific timers
+            let skullSpecialShotTimer = 0;
+            const skullSpecialShotInterval = 10000; // 10 seconds
+            let mooseItemDropTimer = 0;
+            const mooseItemDropInterval = 15000; // 15 seconds
+
+
+            // --- Game Initialization and State Management ---
+
+            function showScreen(screenToShow) {
+                // Hide all top-level screens
+                [startScreen, gameScreen].forEach(s => s.classList.add('hidden'));
+                // Hide overlays within the game-area
+                [gameOverScreen, highscoreScreen, shipSelectionScreen].forEach(s => s.classList.add('hidden'));
+
+                if (screenToShow === startScreen) {
+                    startScreen.classList.remove('hidden');
+                } else if (screenToShow === gameScreen) {
+                    gameScreen.classList.remove('hidden');
+                } else if (screenToShow === gameOverScreen) {
+                    gameScreen.classList.remove('hidden');
+                    gameOverScreen.classList.remove('hidden');
+                } else if (screenToShow === highscoreScreen) {
+                    gameScreen.classList.remove('hidden');
+                    highscoreScreen.classList.remove('hidden');
+                } else if (screenToShow === shipSelectionScreen) {
+                    gameScreen.classList.remove('hidden');
+                    shipSelectionScreen.classList.remove('hidden');
+                }
+            }
+
+
+            function startGame() {
+                playerName = playerNameInput.value.trim();
+                if (playerName === "") {
+                    playerName = "Spieler";
+                }
+                playerNameDisplay.textContent = playerName;
+                score = 0; // Sicherstellen, dass der Score zurückgesetzt wird
+                playerLife = 5;
+                // Sicherstellen, dass die Welle immer bei 1 beginnt, wenn das Spiel gestartet wird
+                if (currentWave === 0) { // Dies ist true, wenn der Neustart-Button gedrückt wurde oder der erster Start ist
+                    currentWave = 1;
+                }
+                highscoreSavedForCurrentGame = false;
+                bossActive = false;
+                multiShotLevel = 1; // Reset multi-shot level
+                resetItemEffects(); // Reset active item effects
+                lifeEarnedAt500 = false; // Reset the flag for 500 points life
+
+                // Boss values reset
+                bossCurrentLife = enemyTypes.bossChicken.life;
+                bossCurrentShootSpeed = enemyTypes.bossChicken.shootSpeed;
+                bossCurrentShootInterval = 1000 / bossCurrentShootSpeed;
+
+                // Ship specific timers reset
+                skullSpecialShotTimer = 0;
+                mooseItemDropTimer = 0;
+
+                // Reset bullet properties to default for the chosen ship
+                const selectedShipData = getShipProperties(currentShipEmoji);
+                currentBulletSpeed = selectedShipData.bulletSpeed;
+                currentBulletStrength = selectedShipData.bulletStrength;
+                currentBulletColor = selectedShipData.bulletColor;
+                multiShotLevel = selectedShipData.initialMultiShotLevel || 1; // Set initial multi-shot
+
+                updateDisplay(); // Aktualisiert die Anzeige und die Schuss-Eigenschaften
+                resetPlayerShip();
+                clearGameObjects();
+                document.querySelector('.game-container').style.backgroundColor = 'rgb(0, 0, 0)';
+                showScreen(gameScreen); // Show the GameScreen
+                startCountdown();
+            }
+
+            function startCountdown() {
+                let count = 3;
+                countdownElement.textContent = count;
+                countdownElement.classList.remove('hidden');
+
+                const countdownInterval = setInterval(() => {
+                    count--;
+                    if (count >= 0) {
+                        countdownElement.textContent = count;
+                    } else {
+                        clearInterval(countdownInterval);
+                        countdownElement.classList.add('hidden');
+                        initGameLoop();
+                    }
+                }, 1000);
+            }
+
+            function initGameLoop() {
+                gameRunning = true;
+                gameInterval = setInterval(gameLoop, 1000 / 60);
+                // playerBulletInterval is called in updatePlayerBulletProperties()
+                enemySpawnInterval = setInterval(spawnEnemyWave, 7000); // Trigger for waves
+                // Item spawn interval will be set dynamically
+                setRandomItemSpawnInterval();
+                spawnEnemyWave(); // Start first wave
+                updatePlayerBulletProperties(); // Initial setup for bullet properties and interval
+            }
+
+            // NEW: Function to set a random item spawn interval
+            function setRandomItemSpawnInterval() {
+                clearInterval(itemSpawnInterval); // Clear any existing interval
+                const randomTime = (Math.floor(Math.random() * 5) + 4) * 1000; // 4, 5, 6, 7, or 8 seconds
+                itemSpawnInterval = setInterval(spawnItem, randomTime);
+            }
+
+            function resetGameToStartScreen() {
+                clearInterval(gameInterval);
+                clearInterval(playerBulletInterval);
+                clearInterval(enemySpawnInterval);
+                clearInterval(itemSpawnInterval);
+                gameRunning = false;
+                playerLife = 5;
+                score = 0;
+                currentWave = 0; // Wichtig: Beim Reset zum Startbildschirm, Welle zurücksetzen
+                bossActive = false;
+                multiShotLevel = 1; // Reset multi-shot level
+                resetItemEffects(); // Reset active item effects
+                lifeEarnedAt500 = false; // Reset the flag for 500 points life
+
+                // Reset ship specific timers
+                skullSpecialShotTimer = 0;
+                mooseItemDropTimer = 0;
+
+                // Reset ship properties to default ship before going to start screen
+                currentShipEmoji = '👾'; // Set to default
+                playerShip.textContent = currentShipEmoji; // Update ship display
+                playerShip.style.transform = `translateX(0)`; // Apply default transform in JS (playerX handles position)
+                const defaultShipData = getShipProperties(currentShipEmoji);
+                currentBulletSpeed = defaultShipData.bulletSpeed;
+                currentBulletStrength = defaultShipData.bulletStrength;
+                currentBulletColor = defaultShipData.bulletColor;
+                multiShotLevel = defaultShipData.initialMultiShotLevel || 1;
+
+
+                invincible = false;
+                playerShip.style.backgroundColor = '';
+                updateDisplay();
+                clearGameObjects();
+                highscoreSavedForCurrentGame = false;
+                showScreen(startScreen);
+            }
+
+            function gameOver() {
+                gameRunning = false;
+                clearInterval(gameInterval);
+                clearInterval(playerBulletInterval);
+                clearInterval(enemySpawnInterval);
+                clearInterval(itemSpawnInterval);
+                finalScoreElement.textContent = `Deine Punkte: ${score}`;
+
+                let hadHighscore = false;
+                if (!highscoreSavedForCurrentGame) {
+                    hadHighscore = checkIfScoreIsHighscore(score);
+                    saveHighscore(playerName, score, currentShipEmoji);
+                    highscoreSavedForCurrentGame = true;
+                }
+
+                showScreen(gameOverScreen);
+
+                if (hadHighscore) {
+                    setTimeout(() => {
+                        displayHighscore();
+                        showScreen(highscoreScreen);
+                    }, 3000);
+                }
+            }
+
+
+            function updateDisplay() {
+                scoreDisplay.textContent = `Punkte: ${score}`;
+                lifeDisplay.textContent = `Leben: ${playerLife}`;
+
+                // Check for normal shot upgrades based on score
+                let newMultiShotLevel = getShipProperties(currentShipEmoji).initialMultiShotLevel || 1; // Start with ship's initial multi-shot
+                let newSpeedFactor = 1;
+
+                if (score >= multiShot5Score) {
+                    newMultiShotLevel = 5;
+                    newSpeedFactor = 2; // Twice as fast as default
+                } else if (score >= multiShot4Score) {
+                    newMultiShotLevel = 4;
+                    newSpeedFactor = 1; // Standard speed
+                } else if (score >= speedUpgradeScore) {
+                    // Only apply speed upgrade if it doesn't conflict with higher multi-shot score tiers
+                    if (newMultiShotLevel < 4) { // Only apply if not already 4-shot or 5-shot
+                        newMultiShotLevel = Math.max(newMultiShotLevel, 1); // Keep current multi-shot if it's already higher than 1
+                        newSpeedFactor = 2; // Twice as fast as default
+                    }
+                }
+
+                // If any item effect is active, it overrides the score-based multiShotLevel and speed.
+                // Otherwise, the score-based newMultiShotLevel is used.
+                // This logic is mostly handled in updatePlayerBulletProperties, which is called after this.
+                // So, here we just set the _base_ based on score if no item is active.
+                if (!activeItemEffects.yellowShot.active && !activeItemEffects.redShot.active) {
+                     multiShotLevel = newMultiShotLevel;
+                     currentBulletSpeed = getShipProperties(currentShipEmoji).bulletSpeed * newSpeedFactor;
+                }
+
+
+                // Check for extra life at 500 points
+                if (score >= extraLifeScore && !lifeEarnedAt500) {
+                    playerLife = Math.min(5, playerLife + 1); // Max 5 lives
+                    lifeEarnedAt500 = true; // Set flag to prevent multiple lives
+                    updateDisplay(); // Update life display
+                }
+            }
+
+            // Function to update the score display without triggering other game logic
+            function updateScore(newScore) {
+                score = newScore;
+                scoreDisplay.textContent = `Punkte: ${score}`;
+                updateDisplay(); // Call updateDisplay to check for upgrades
+            }
+
+            function clearGameObjects() {
+                enemies.forEach(enemy => enemy.element.remove());
+                playerBullets.forEach(bullet => bullet.element.remove());
+                enemyBullets.forEach(bullet => bullet.element.remove());
+                items.forEach(item => item.element.remove());
+                enemies = [];
+                playerBullets = [];
+                enemyBullets = [];
+                items = [];
+            }
+
+            // --- Player Ship Control ---
+
+            function resetPlayerShip() {
+                const gameAreaRect = gameArea.getBoundingClientRect();
+                const shipWidth = playerShip.offsetWidth;
+
+                // Korrigierte Berechnung: playerX ist der linke Rand des Schiffs.
+                // Um das Schiff zu zentrieren, muss der linke Rand auf (Mitte des Spielbereichs - halbe Schiffbreite) gesetzt werden.
+                playerX = (gameAreaRect.width / 2) - (shipWidth / 2);
+
+                playerShip.style.left = `${playerX}px`;
+                playerShip.style.transform = `translateX(0)`; // transform: translateX(-50%) entfernen, da playerX bereits den linken Rand setzt.
+                playerShip.style.bottom = '20px';
+                playerShip.textContent = currentShipEmoji;
+            }
+
+            function movePlayerShip(direction) {
+                if (!gameRunning) return;
+
+                const gameAreaWidth = gameArea.offsetWidth;
+                const shipWidth = playerShip.offsetWidth;
+
+                // playerX ist der linke Rand des Schiffes
+                if (direction === 'left') {
+                    playerX = Math.max(0, playerX - playerSpeed);
+                } else if (direction === 'right') {
+                    playerX = Math.min(gameAreaWidth - shipWidth, playerX + playerSpeed);
+                }
+                playerShip.style.left = `${playerX}px`;
+            }
+
+
+            // Keyboard controls
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') {
+                    movePlayerShip('left');
+                } else if (e.key === 'ArrowRight') {
+                    movePlayerShip('right');
+                }
+            });
+
+            // Mobile controls (touchstart/touchend for holding)
+            let leftPressed = false;
+            let rightPressed = false;
+            let moveInterval;
+
+            function startMove(direction) {
+                if (moveInterval) return;
+                moveInterval = setInterval(() => {
+                    movePlayerShip(direction);
+                }, 1000 / 60);
+            }
+
+            function stopMove() {
+                clearInterval(moveInterval);
+                moveInterval = null;
+            }
+
+            moveLeftButton.addEventListener('mousedown', () => {
+                leftPressed = true;
+                startMove('left');
+            });
+            moveLeftButton.addEventListener('mouseup', () => {
+                leftPressed = false;
+                if (!rightPressed) stopMove();
+            });
+            moveLeftButton.addEventListener('mouseleave', () => {
+                leftPressed = false;
+                if (!rightPressed) stopMove();
+            });
+
+            moveRightButton.addEventListener('mousedown', () => {
+                rightPressed = true;
+                startMove('right');
+            });
+            moveRightButton.addEventListener('mouseup', () => {
+                rightPressed = false;
+                if (!leftPressed) stopMove();
+            });
+            moveRightButton.addEventListener('mouseleave', () => {
+                rightPressed = false;
+                if (!leftPressed) stopMove();
+            });
+
+            // Touch events for mobile
+            moveLeftButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                leftPressed = true;
+                startMove('left');
+            }, { passive: false });
+            moveLeftButton.addEventListener('touchend', () => {
+                leftPressed = false;
+                if (!rightPressed) stopMove();
+            });
+
+            moveRightButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                rightPressed = true;
+                startMove('right');
+            }, { passive: false });
+            moveRightButton.addEventListener('touchend', () => {
+                rightPressed = false;
+                if (!leftPressed) stopMove();
+            });
+
+
+            // --- Bullets ---
+
+            function shootPlayerBullet() {
+                if (!gameRunning) return;
+
+                const playerShipRect = playerShip.getBoundingClientRect();
+                const gameAreaRect = gameArea.getBoundingClientRect();
+
+                // Calculate base bullet Y position relative to gameArea top
+                const bulletY = (playerShipRect.top - gameAreaRect.top) - 20;
+
+                const bulletOffsets = [];
+                // Diese Offsets sind relativ zum *Mittelpunkt* des Raumschiffs (SpielerX + halbe Schiffsbreite)
+                const shipCenterX = playerX + playerShip.offsetWidth / 2;
+
+                if (multiShotLevel === 1) {
+                    bulletOffsets.push(0);
+                } else if (multiShotLevel === 2) {
+                    bulletOffsets.push(-12); // Offset vom Mittelpunkt
+                    bulletOffsets.push(12);
+                } else if (multiShotLevel === 3) {
+                    bulletOffsets.push(-24);
+                    bulletOffsets.push(0);
+                    bulletOffsets.push(24);
+                } else if (multiShotLevel === 4) { // 4-fach Schuss
+                    bulletOffsets.push(-36);
+                    bulletOffsets.push(-12);
+                    bulletOffsets.push(12);
+                    bulletOffsets.push(36);
+                } else if (multiShotLevel === 5) { // 5-fach Schuss
+                    bulletOffsets.push(-48);
+                    bulletOffsets.push(-24);
+                    bulletOffsets.push(0);
+                    bulletOffsets.push(24);
+                    bulletOffsets.push(48);
+                }
+
+
+                bulletOffsets.forEach(offset => {
+                    const bullet = document.createElement('div');
+                    bullet.classList.add('player-bullet');
+                    bullet.classList.add(currentBulletColor);
+                    gameArea.appendChild(bullet);
+
+                    // Get the bullet's actual width after appending
+                    const bulletWidth = bullet.offsetWidth;
+
+                    // Die linke Position der Kugel ist der Mittelpunkt des Schiffs
+                    // plus der Offset, minus die halbe Kugelbreite, um sie zu zentrieren.
+                    const bulletX = shipCenterX + offset - (bulletWidth / 2);
+
+                    bullet.style.left = `${bulletX}px`;
+                    bullet.style.top = `${bulletY}px`;
+
+                    playerBullets.push({
+                        element: bullet,
+                        x: bulletX,
+                        y: bulletY,
+                        strength: currentBulletStrength,
+                        isSpecial: false // Mark as non-special bullet
+                    });
+                });
+            }
+
+            // NEW: Funktion für den Knochen-Schuss des Todes-Schiffs
+            function shootSkullSpecialBullet() {
+                if (!gameRunning) return;
+
+                const playerShipRect = playerShip.getBoundingClientRect();
+                const gameAreaRect = gameArea.getBoundingClientRect();
+
+                const bulletY = (playerShipRect.top - gameAreaRect.top) - 20;
+                const shipCenterX = playerX + playerShip.offsetWidth / 2;
+
+                const bullet = document.createElement('div');
+                bullet.classList.add('player-bullet'); // Reuse player-bullet styling
+                bullet.textContent = '🦴'; // Bone emoji
+                bullet.style.backgroundColor = 'transparent'; // No background color for emoji bullets
+                bullet.style.width = 'auto'; // Adjust width to content
+                bullet.style.height = 'auto'; // Adjust height to content
+                bullet.style.fontSize = 'clamp(1.5rem, 6vw, 3rem)'; // Make it larger
+                gameArea.appendChild(bullet);
+
+                const bulletWidth = bullet.offsetWidth;
+                const bulletX = shipCenterX - (bulletWidth / 2);
+
+                bullet.style.left = `${bulletX}px`;
+                bullet.style.top = `${bulletY}px`;
+
+                playerBullets.push({
+                    element: bullet,
+                    x: bulletX,
+                    y: bulletY,
+                    strength: defaultBulletStrength * 2, // Double damage
+                    isSpecial: true // Mark as special bullet
+                });
+            }
+
+
+            function moveBullets() {
+                playerBullets.forEach((bullet, index) => {
+                    bullet.y -= currentBulletSpeed;
+                    bullet.element.style.top = `${bullet.y}px`;
+
+                    if (bullet.y + bullet.element.offsetHeight < 0) {
+                        bullet.element.remove();
+                        playerBullets.splice(index, 1);
+                    }
+                });
+
+                enemyBullets.forEach((bullet, index) => {
+                    bullet.y += bullet.speed;
+                    bullet.element.style.top = `${bullet.y}px`;
+
+                    if (bullet.y > gameArea.offsetHeight) {
+                        bullet.element.remove();
+                        enemyBullets.splice(index, 1);
+                    }
+                });
+            }
+
+            // --- Enemies ---
+
+            function spawnEnemyWave() {
+                // Skaliere Boss-Werte für die aktuelle Welle (bevor sie gespawnt wird)
+                if (currentWave > 0) { // Nur Werte nach der ersten Welle skalieren
+                    bossCurrentLife += 2;
+                    bossCurrentShootSpeed += 0.5;
+                    bossCurrentShootInterval = Math.max(100, bossCurrentShootInterval - 500); // Minimum 100ms
+                }
+
+                // currentWave ist bereits auf 1 gesetzt, wenn das Spiel startet
+                // oder wird durch die gameLoop erhöht, wenn alle Gegner besiegt sind.
+                // Hier keine Erhöhung, da es bereits in der gameLoop oder startGame geschieht.
+                const baseDarkness = 20;
+                const lightnessStep = 5;
+                const darkness = Math.max(0, baseDarkness - currentWave * lightnessStep);
+                document.querySelector('.game-container').style.backgroundColor = `rgb(${darkness}, ${darkness}, ${darkness})`;
+
+                const initialEnemies = 2;
+                const numEnemies = Math.min(20, initialEnemies + currentWave);
+
+                // Zuerst die normalen Hühner spawnen
+                for (let i = 0; i < numEnemies; i++) {
+                    spawnRegularEnemy(1 + currentWave * 0.05); // Geschwindigkeit der normalen Hühner skalieren
+                }
+                bossActive = false; // Sicherstellen, dass der Boss am Anfang der Welle nicht aktiv ist
+            }
+
+            function spawnRegularEnemy(speedFactor = 1) {
+                const random = Math.random();
+                let type;
+                if (random < enemyTypes.egg.frequency) {
+                    type = enemyTypes.egg;
+                } else if (random < enemyTypes.egg.frequency + enemyTypes.chick.frequency) {
+                    type = enemyTypes.chick;
+                } else if (random < enemyTypes.egg.frequency + enemyTypes.chick.frequency + enemyTypes.youngChicken.frequency) {
+                    type = enemyTypes.youngChicken;
+                } else {
+                    type = enemyTypes.chicken;
+                }
+
+                const enemy = document.createElement('div');
+                enemy.classList.add('enemy');
+                enemy.textContent = type.emoji;
+                gameArea.appendChild(enemy); // Wichtig: Element zuerst anhängen
+
+                // Nun die tatsächliche, gerenderte Breite des Gegners abrufen
+                const enemyWidth = enemy.offsetWidth;
+                const enemyHeight = enemy.offsetHeight;
+
+                const initialX = Math.random() * (gameArea.offsetWidth - enemyWidth);
+                const initialY = -enemyHeight; // Start außerhalb des oberen Randes
+
+                enemies.push({
+                    element: enemy,
+                    type: type,
+                    life: type.life,
+                    x: initialX, // X-Position relativ zum gameArea speichern
+                    y: initialY, // Y-Position relativ zum gameArea speichern
+                    speed: (Math.random() * 0.2 + 0.3) * speedFactor,
+                    shootTimer: 0,
+                    shootInterval: 1000 / (type.shootSpeed * speedFactor) * 1.5,
+                    isBalloon: false,
+                    isBoss: false // Als nicht-Boss markieren
+                });
+
+                enemy.style.left = `${initialX}px`;
+                enemy.style.top = `${initialY}px`;
+            }
+
+            // NEU: Boss spawnen
+            function spawnBoss() {
+                if (bossActive) return; // Nur ein Boss gleichzeitig
+
+                const type = enemyTypes.bossChicken;
+                const boss = document.createElement('div');
+                boss.classList.add('enemy', 'boss'); // 'boss'-Klasse für Styling hinzufügen
+                boss.textContent = type.emoji;
+                gameArea.appendChild(boss);
+
+                const bossWidth = boss.offsetWidth;
+                const bossHeight = boss.offsetHeight;
+
+                const initialX = (gameArea.offsetWidth / 2) - (bossWidth / 2); // Zentral
+                const initialY = -bossHeight; // Von oben einfliegen
+
+                enemies.push({
+                    element: boss,
+                    type: type,
+                    life: bossCurrentLife, // Aktuelles Boss-Leben verwenden
+                    x: initialX, // X-Position relativ zum gameArea speichern
+                    y: initialY, // Y-Position relativ zum gameArea speichern
+                    speed: 1, // Boss fliegt langsamer herunter
+                    shootTimer: 0,
+                    shootInterval: bossCurrentShootInterval, // Aktuelles Boss-Schussintervall verwenden
+                    isBalloon: false,
+                    isBoss: true
+                });
+                bossActive = true;
+                boss.style.left = `${initialX}px`;
+                boss.style.top = `${initialY}px`;
+            }
+
+
+            function moveEnemiesAndShoot() {
+                let anyRegularEnemyLeft = false;
+
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+
+                    if (!enemy.isBoss) { // Normale Hühner
+                        anyRegularEnemyLeft = true;
+                    }
+
+                    if (!enemy.isBalloon) {
+                        enemy.y += enemy.speed;
+                    } else {
+                        enemy.y += enemy.speed;
+                    }
+
+                    enemy.element.style.top = `${enemy.y}px`;
+
+                    // Schusslogik für alle Gegner (inkl. Boss)
+                    enemy.shootTimer += 1000 / 60;
+                    if (enemy.shootTimer >= enemy.shootInterval) {
+                        shootEnemyBullet(enemy);
+                        enemy.shootTimer = 0;
+                    }
+
+                    // Gegner entfernen, die den Bildschirm unten verlassen, oder Ballons oben
+                    if (enemy.y > gameArea.offsetHeight || (enemy.isBalloon && enemy.y + enemy.element.offsetHeight < 0)) {
+                        enemy.element.remove(); // Vom DOM entfernen
+                        enemies.splice(i, 1); // Aus Array entfernen
+                        if (!enemy.isBalloon && !enemy.isBoss && !invincible) { // Hühner verursachen Schaden, es sei denn, unbesiegbar
+                            playerLife = Math.max(0, playerLife - 1);
+                            updateDisplay();
+                            if (playerLife <= 0) {
+                                gameOver();
+                            }
+                        }
+                    }
+                }
+
+                // KORREKTUR: Boss soll nach JEDER 2. Welle erscheinen, nicht nur wenn currentWave gerade ist.
+                // Erhöhe currentWave erst HIER, nachdem alle normalen Gegner einer Welle besiegt wurden.
+                // Dann prüfe, ob es eine Boss-Welle ist.
+                if (!anyRegularEnemyLeft && !bossActive && enemies.filter(e => !e.isBoss).length === 0) {
+                    currentWave++; // Welle erhöhen, nachdem alle REGULÄREN Feinde einer Welle besiegt sind
+                    if (currentWave % 2 === 0 && currentWave > 0) { // Prüfe, ob es eine gerade Welle ist (Welle 2, 4, 6...)
+                        spawnBoss();
+                    } else {
+                        // Wenn es eine ungerade Welle ist und alle Gegner besiegt sind,
+                        // starte die nächste Welle regulärer Gegner.
+                        spawnEnemyWave();
+                    }
+                }
+            }
+
+
+            function shootEnemyBullet(enemy) {
+                const bullet = document.createElement('div');
+                bullet.classList.add('enemy-bullet');
+
+                // Überprüfen, ob es der Boss ist
+                if (enemy.isBoss) {
+                    bullet.textContent = '🐣'; // Boss schießt Küken
+                } else {
+                    bullet.textContent = '🥚'; // Normale Hühner schießen Eier
+                }
+
+                gameArea.appendChild(bullet); // Zuerst anhängen, um berechnete Stile zu erhalten
+
+                const bulletWidth = bullet.offsetWidth;
+                const bulletHeight = bullet.offsetHeight;
+
+                // Start-X- und Y-Position der Kugel relativ zum gameArea berechnen
+                // Die Kugel sollte horizontal unter dem Gegner zentriert erscheinen
+                const bulletX = enemy.x + (enemy.element.offsetWidth / 2) - (bulletWidth / 2);
+                const bulletY = enemy.y + enemy.element.offsetHeight;
+
+                bullet.style.left = `${bulletX}px`;
+                bullet.style.top = `${bulletY}px`;
+
+                enemyBullets.push({
+                    element: bullet,
+                    x: bulletX,
+                    y: bulletY,
+                    speed: enemy.type.shootSpeed * 2 // Kugelgeschwindigkeit basierend auf der Schussgeschwindigkeit des Gegners
+                });
+            }
+
+            // --- Items ---
+
+            function spawnItem() {
+                if (!gameRunning) return;
+
+                const itemKeys = Object.keys(itemTypes);
+                const randomItemKey = itemKeys[Math.floor(Math.random() * itemKeys.length)];
+                const type = itemTypes[randomItemKey];
+
+                const item = document.createElement('div');
+                item.classList.add('item');
+                item.textContent = type.emoji;
+                gameArea.appendChild(item);
+
+                const itemWidth = item.offsetWidth;
+                const itemHeight = item.offsetHeight;
+
+                const initialX = Math.random() * (gameArea.offsetWidth - itemWidth);
+                const initialY = -itemHeight;
+
+                items.push({
+                    element: item,
+                    type: type,
+                    x: initialX, // X-Position relativ zum gameArea speichern
+                    y: initialY, // Y-Position relativ zum gameArea speichern
+                    speed: 2
+                });
+
+                item.style.left = `${initialX}px`;
+                item.style.top = `${initialY}px`;
+            }
+
+            function moveItems() {
+                items.forEach((item, index) => {
+                    item.y += item.speed;
+                    item.element.style.top = `${item.y}px`;
+
+                    if (item.y > gameArea.offsetHeight) {
+                        item.element.remove();
+                        items.splice(index, 1);
+                    }
+                });
+            }
+
+            // --- Collision Detection ---
+
+            function checkCollisions() {
+                // Spieler-Kugel trifft Gegner
+                for (let bIndex = playerBullets.length - 1; bIndex >= 0; bIndex--) {
+                    const bullet = playerBullets[bIndex];
+                    const bulletRect = bullet.element.getBoundingClientRect();
+
+                    for (let eIndex = enemies.length - 1; eIndex >= 0; eIndex--) {
+                        const enemy = enemies[eIndex];
+                        const enemyRect = enemy.element.getBoundingClientRect();
+
+                        if (isColliding(bulletRect, enemyRect)) {
+                            // Explosion an der (relativen) Position des getroffenen Gegners anzeigen.
+                            // Da enemy.x und enemy.y relativ zum gameArea gespeichert sind, sind sie hier korrekt.
+                            showExplosion(enemy.x + enemy.element.offsetWidth / 2, enemy.y + enemy.element.offsetHeight / 2);
+                            bullet.element.remove();
+                            playerBullets.splice(bIndex, 1);
+
+                            enemy.life -= bullet.strength;
+                            if (enemy.life <= 0) {
+                                enemy.element.remove(); // Vom DOM entfernen
+                                enemies.splice(eIndex, 1); // Aus Array entfernen
+                                score += enemy.type.points;
+                                updateDisplay();
+                                if (enemy.isBoss) {
+                                    bossActive = false;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+
+                // Spieler-Kugel trifft Gegner-Kugel
+                for (let pbIndex = playerBullets.length - 1; pbIndex >= 0; pbIndex--) {
+                    const playerBullet = playerBullets[pbIndex];
+                    const playerBulletRect = playerBullet.element.getBoundingClientRect();
+                    for (let ebIndex = enemyBullets.length - 1; ebIndex >= 0; ebIndex--) {
+                        const enemyBullet = enemyBullets[ebIndex];
+                        const enemyBulletRect = enemyBullet.element.getBoundingClientRect();
+                        if (isColliding(playerBulletRect, enemyBulletRect)) {
+                            showExplosion(enemyBullet.x + enemyBullet.element.offsetWidth / 2, enemyBullet.y + enemyBullet.element.offsetHeight / 2);
+                            playerBullet.element.remove();
+                            playerBullets.splice(pbIndex, 1);
+                            enemyBullet.element.remove();
+                            enemyBullets.splice(ebIndex, 1);
+                            break;
+                        }
+                    }
+                }
+
+                // Spieler-Kugel trifft Item (keine direkte Kollision, Kugeln sollten Items zerstören)
+                for (let pbIndex = playerBullets.length - 1; pbIndex >= 0; pbIndex--) {
+                    const playerBullet = playerBullets[pbIndex];
+                    const playerBulletRect = playerBullet.element.getBoundingClientRect();
+                    for (let iIndex = items.length - 1; iIndex >= 0; iIndex--) {
+                        const item = items[iIndex];
+                        const itemRect = item.element.getBoundingClientRect();
+                        if (isColliding(playerBulletRect, itemRect)) {
+                            showItemPickup(item.x + item.element.offsetWidth / 2, item.y + item.element.offsetHeight / 2);
+                            applyItemEffect(item.type.effect);
+                            item.element.remove();
+                            items.splice(iIndex, 1);
+                            playerBullet.element.remove();
+                            playerBullets.splice(pbIndex, 1);
+                            break;
+                        }
+                    }
+                }
+
+
+                // Gegner-Kugel trifft Spieler
+                for (let bIndex = enemyBullets.length - 1; bIndex >= 0; bIndex--) {
+                    const bullet = enemyBullets[bIndex];
+                    const bulletRect = bullet.element.getBoundingClientRect();
+                    const playerShipRect = playerShip.getBoundingClientRect();
+                    if (isColliding(bulletRect, playerShipRect)) {
+                        bullet.element.remove();
+                        enemyBullets.splice(bIndex, 1);
+
+                        if (!invincible) {
+                            playerLife = Math.max(0, playerLife - 1);
+                            updateDisplay();
+                            if (playerLife <= 0) {
+                                gameOver();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+
+                // Spieler-Schiff kollidiert mit Gegner
+                const playerShipRect = playerShip.getBoundingClientRect();
+                for (let eIndex = enemies.length - 1; eIndex >= 0; eIndex--) {
+                    const enemy = enemies[eIndex];
+                    const enemyRect = enemy.element.getBoundingClientRect();
+                    if (isColliding(playerShipRect, enemyRect)) {
+                        enemy.element.remove();
+                        enemies.splice(eIndex, 1);
+                        if (!invincible) {
+                            playerLife = Math.max(0, playerLife - 1);
+                            updateDisplay();
+                            if (playerLife <= 0) {
+                                gameOver();
+                                return;
+                            }
+                        }
+                        if (enemy.isBoss) {
+                            bossActive = false;
+                        }
+                    }
+                }
+
+                // Spieler-Schiff sammelt Item auf
+                for (let iIndex = items.length - 1; iIndex >= 0; iIndex--) {
+                    const item = items[iIndex];
+                    const itemRect = item.element.getBoundingClientRect();
+                    if (isColliding(playerShipRect, itemRect)) {
+                        showItemPickup(item.x + item.element.offsetWidth / 2, item.y + item.element.offsetHeight / 2);
+                        item.element.remove();
+                        items.splice(iIndex, 1);
+                        applyItemEffect(item.type.effect);
+                    }
+                }
+            }
+
+            // Funktion für Kollisionserkennung, direkt unter Verwendung von Bounding Rects
+            function isColliding(rect1, rect2) {
+                return rect1.left < rect2.right &&
+                       rect1.right > rect2.left &&
+                       rect1.top < rect2.bottom &&
+                       rect1.bottom > rect2.top;
+            }
+
+
+            function showExplosion(x, y) {
+                const explosion = document.createElement('div');
+                explosion.classList.add('explosion');
+                explosion.textContent = '💥';
+                // Position anpassen, um zentriert zu sein
+                explosion.style.left = `${x - explosion.offsetWidth / 2}px`;
+                explosion.style.top = `${y - explosion.offsetHeight / 2}px`;
+                gameArea.appendChild(explosion);
+
+                setTimeout(() => {
+                    explosion.remove();
+                }, 500);
+            }
+
+            function showItemPickup(x, y) {
+                const pickup = document.createElement('div');
+                pickup.classList.add('item-pickup');
+                pickup.textContent = '✨️';
+                // Position anpassen, um zentriert zu sein
+                pickup.style.left = `${x - pickup.offsetWidth / 2}px`;
+                pickup.style.top = `${y - pickup.offsetHeight / 2}px`;
+                gameArea.appendChild(pickup);
+
+                setTimeout(() => {
+                    pickup.remove();
+                }, 500);
+            }
+
+            // NEU: Alle aktiven Item-Effekte zurücksetzen
+            function resetItemEffects() {
+                for (const key in activeItemEffects) {
+                    if (activeItemEffects[key].timer) {
+                        clearTimeout(activeItemEffects[key].timer);
+                    }
+                    activeItemEffects[key].active = false;
+                    activeItemEffects[key].timer = null;
+                }
+                invincible = false;
+                playerShip.textContent = currentShipEmoji;
+                playerShip.style.transform = `translateX(0)`; // Zurücksetzen auf 0, da playerX den linken Rand setzt
+            }
+
+            function applyItemEffect(effect) {
+                // Bestehenden Timer löschen, falls dieser Effekt bereits aktiv ist
+                if (activeItemEffects[effect] && activeItemEffects[effect].timer) {
+                    clearTimeout(activeItemEffects[effect].timer);
+                    activeItemEffects[effect].timer = null;
+                }
+
+                if (effect === 'life+1') {
+                    playerLife = Math.min(5, playerLife + 1);
+                    updateDisplay();
+                } else if (effect === 'life-1') {
+                    playerLife = Math.max(0, playerLife - 1);
+                    updateDisplay();
+                    if (playerLife <= 0) {
+                        gameOver();
+                    }
+                } else if (effect === 'invincible') {
+                    invincible = true;
+                    playerShip.textContent = '😈';
+                    playerShip.style.transform = `scale(1.1)`; // Visuelles Feedback für Unbesiegbarkeit
+                    activeItemEffects.invincible.active = true;
+                    activeItemEffects.invincible.timer = setTimeout(() => {
+                        invincible = false;
+                        activeItemEffects.invincible.active = false;
+                        playerShip.textContent = currentShipEmoji;
+                        playerShip.style.transform = `scale(1)`; // Visuelles Zurücksetzen
+                        updatePlayerBulletProperties();
+                    }, itemTypes.invincible.duration);
+                } else if (effect === 'yellowShot') {
+                    activeItemEffects.yellowShot.active = true;
+                    activeItemEffects.yellowShot.timer = setTimeout(() => {
+                        activeItemEffects.yellowShot.active = false;
+                        updatePlayerBulletProperties();
+                    }, itemTypes.yellowShot.duration);
+                } else if (effect === 'redShot') {
+                    activeItemEffects.redShot.active = true;
+                    activeItemEffects.redShot.timer = setTimeout(() => {
+                        activeItemEffects.redShot.active = false;
+                        updatePlayerBulletProperties();
+                    }, itemTypes.redShot.duration);
+                } else if (effect === 'balloon') {
+                    const currentEnemies = [...enemies];
+                    const enemiesToBalloonCount = Math.ceil(currentEnemies.length / 2);
+
+                    let convertedCount = 0;
+                    for (let i = 0; i < currentEnemies.length && convertedCount < enemiesToBalloonCount; i++) {
+                        const enemyToConvert = currentEnemies[i];
+                        // Nur normale Hühner in Ballons umwandeln, keine Bosse
+                        if (enemies.includes(enemyToConvert) && !enemyToConvert.isBalloon && !enemyToConvert.isBoss) {
+                            enemyToConvert.element.textContent = '🎈';
+                            enemyToConvert.isBalloon = true;
+                            enemyToConvert.speed = -5; // Fliegt nach oben
+                            enemyToConvert.element.style.transition = 'top 5s linear'; // Animation zum Verlassen des Bildschirms
+                            enemyToConvert.element.style.top = '-100px'; // Zielposition über dem Bildschirm
+
+                            convertedCount++;
+
+                            setTimeout(() => {
+                                enemyToConvert.element.remove();
+                                const index = enemies.indexOf(enemyToConvert);
+                                if (index > -1) {
+                                    enemies.splice(index, 1);
+                                }
+                            }, 5000); // Ballon nach 5 Sekunden entfernen
+                        }
+                    }
+                }
+                updatePlayerBulletProperties(); // Kugel-Eigenschaften nach Item-Aufnahme neu bewerten
+            }
+
+            // NEU: Funktion zum Aktualisieren der Spieler-Kugel-Eigenschaften basierend auf aktiven Effekten und Score
+            function updatePlayerBulletProperties() {
+                clearInterval(playerBulletInterval); // Aktuelles Schussintervall löschen
+
+                const baseShipProperties = getShipProperties(currentShipEmoji);
+                let newBulletSpeed = baseShipProperties.bulletSpeed;
+                let newBulletStrength = baseShipProperties.bulletStrength;
+                let newBulletColor = baseShipProperties.bulletColor;
+                let newShootInterval = baseShipProperties.shootInterval;
+                let currentEffectiveMultiShotLevel = baseShipProperties.initialMultiShotLevel || 1; // Start with base for current ship
+
+                // Apply score-based upgrades first (only if no item effect is active)
+                if (!activeItemEffects.yellowShot.active && !activeItemEffects.redShot.active) {
+                    if (score >= multiShot5Score) {
+                        currentEffectiveMultiShotLevel = 5;
+                        newBulletSpeed = defaultBulletSpeed * 2; // Twice as fast
+                    } else if (score >= multiShot4Score) {
+                        currentEffectiveMultiShotLevel = 4;
+                    } else if (score >= speedUpgradeScore) {
+                        if (currentEffectiveMultiShotLevel < 4) { // Only apply if not already 4-shot or 5-shot
+                            currentEffectiveMultiShotLevel = Math.max(currentEffectiveMultiShotLevel, 1);
+                            newBulletSpeed = defaultBulletSpeed * 2; // Twice as fast
+                        }
+                    }
+                }
+
+                // Check for combined yellowShot- and redShot-Effekte
+                if (activeItemEffects.yellowShot.active && activeItemEffects.redShot.active) {
+                    newBulletColor = 'pink';
+                    newBulletSpeed = defaultBulletSpeed * 2 + defaultBulletSpeed * 4; // Yellow + Red speeds combined
+                    newBulletStrength = defaultBulletStrength + defaultBulletStrength * 4; // Yellow (1x) + Red strengths (4x) combined
+                    newShootInterval = 0; // Fastest possible shot
+                    currentEffectiveMultiShotLevel = 5; // Always 5-shot for pink
+
+                    // Individual timers reset
+                    if (activeItemEffects.yellowShot.timer) clearTimeout(activeItemEffects.yellowShot.timer);
+                    if (activeItemEffects.redShot.timer) clearTimeout(activeItemEffects.redShot.timer);
+
+                    // New combined timer (reduced duration to 6 seconds)
+                    activeItemEffects.yellowShot.timer = setTimeout(() => { // Reuse yellowShot timer for combined effect
+                        activeItemEffects.yellowShot.active = false;
+                        activeItemEffects.redShot.active = false;
+                        updatePlayerBulletProperties(); // Resets bullet properties
+                    }, 6000); // 6 seconds for the pink shot
+                } else if (activeItemEffects.yellowShot.active) {
+                    newBulletColor = 'yellow';
+                    newBulletSpeed = defaultBulletSpeed * 2;
+                    newShootInterval = 1000 / 6;
+                    currentEffectiveMultiShotLevel = 3; // Yellow shot always 3-shot
+                } else if (activeItemEffects.redShot.active) {
+                    newBulletColor = 'red';
+                    newBulletSpeed = defaultBulletSpeed * 4;
+                    newBulletStrength = defaultBulletStrength * 4;
+                    newShootInterval = 0;
+                    currentEffectiveMultiShotLevel = 3; // Red shot always 3-shot
+                }
+
+                currentBulletColor = newBulletColor;
+                currentBulletSpeed = newBulletSpeed;
+                currentBulletStrength = newBulletStrength;
+                multiShotLevel = currentEffectiveMultiShotLevel; // Update the global multiShotLevel
+                playerBulletInterval = setInterval(shootPlayerBullet, newShootInterval);
+            }
+
+            // --- Schiffsauswahl-Logik ---
+            const shipProperties = {
+                '👾': { bulletColor: 'purple', bulletSpeed: defaultBulletSpeed, bulletStrength: defaultBulletStrength, shootInterval: 1000 / 4, initialMultiShotLevel: 1 },
+                '☠️': { bulletColor: 'white', bulletSpeed: defaultBulletSpeed, bulletStrength: defaultBulletStrength, shootInterval: 1000 / 4, initialMultiShotLevel: 1 },
+                '🫎': { bulletColor: 'orange', bulletSpeed: defaultBulletSpeed, bulletStrength: defaultBulletStrength, shootInterval: 1000 / 4, initialMultiShotLevel: 1 },
+                '🍴': { bulletColor: 'gray', bulletSpeed: defaultBulletSpeed / 2, bulletStrength: defaultBulletStrength, shootInterval: 1000 / 4, initialMultiShotLevel: 2 }, // Half speed, double shot
+                '🪆': { bulletColor: 'red', bulletSpeed: defaultBulletSpeed * 1.5, bulletStrength: defaultBulletStrength, shootInterval: 1000 / 5, initialMultiShotLevel: 1 },
+                '💩': { bulletColor: 'brown', bulletSpeed: defaultBulletSpeed * 0.5, bulletStrength: defaultBulletStrength / 2, shootInterval: 1000 / 2, initialMultiShotLevel: 1 }
+            };
+
+            function getShipProperties(emoji) {
+                return shipProperties[emoji] || shipProperties['👾'];
+            }
+
+            function selectShip(emoji) {
+                currentShipEmoji = emoji;
+                playerShip.textContent = currentShipEmoji;
+                updatePlayerBulletProperties();
+                startGame(); // Spiel starten, nachdem ein Schiff ausgewählt wurde
+            }
+
+            shipOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    const emoji = option.querySelector('span').textContent;
+                    selectShip(emoji);
+                });
+            });
+
+            // NEU: Hilfsfunktion zur Anzeige der Schiffsauswahl
+            function showShipSelection() {
+                // Sicherstellen, dass alle Spiel-relevanten Intervalle gestoppt sind
+                clearInterval(gameInterval);
+                clearInterval(playerBulletInterval);
+                clearInterval(enemySpawnInterval);
+                clearInterval(itemSpawnInterval);
+
+                // Zurücksetzen von Spielvariablen
+                gameRunning = false;
+                playerLife = 5;
+                score = 0;
+                currentWave = 0; // Wichtig: Damit das Spiel bei Auswahl Welle 1 startet
+                bossActive = false;
+                multiShotLevel = 1;
+                resetItemEffects();
+                invincible = false;
+                highscoreSavedForCurrentGame = false;
+                lifeEarnedAt500 = false; // Reset the flag for 500 points life
+
+                // Reset ship specific timers
+                skullSpecialShotTimer = 0;
+                mooseItemDropTimer = 0;
+
+                clearGameObjects(); // Alle Spielobjekte entfernen
+                updateScore(0); // Score Anzeige auf 0 setzen
+
+                // Zeigt den Schiffsauswahlbildschirm an und versteckt andere Screens
+                showScreen(shipSelectionScreen);
+            }
+
+
+            // --- Highscore ---
+
+            function checkIfScoreIsHighscore(currentScore) {
+                const storedHighscores = JSON.parse(localStorage.getItem('chickenInvadersHighscores')) || [];
+                if (storedHighscores.length < 10) {
+                    return true;
+                }
+                return currentScore > storedHighscores[storedHighscores.length - 1].score;
+            }
+
+            function saveHighscore(name, score, shipEmoji) {
+                let storedHighscores = JSON.parse(localStorage.getItem('chickenInvadersHighscores')) || [];
+
+                storedHighscores.push({ name, score, shipEmoji });
+
+                storedHighscores.sort((a, b) => b.score - a.score);
+
+                highscores = storedHighscores.slice(0, 10);
+
+                localStorage.setItem('chickenInvadersHighscores', JSON.stringify(highscores));
+            }
+
+            function displayHighscore() {
+                highscores = JSON.parse(localStorage.getItem('chickenInvadersHighscores')) || [];
+
+                highscoreList.innerHTML = '';
+                if (highscores.length === 0) {
+                    const li = document.createElement('li');
+                    li.textContent = "Noch keine Highscores vorhanden.";
+                    highscoreList.appendChild(li);
+                } else {
+                    highscores.forEach((entry, index) => {
+                        const li = document.createElement('li');
+                        const shipEmojiSpan = document.createElement('span');
+                        shipEmojiSpan.classList.add('ship-emoji');
+                        shipEmojiSpan.textContent = entry.shipEmoji || '👾';
+
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = `${index + 1}. ${entry.name}: ${entry.score} Punkte`;
+
+                        li.appendChild(shipEmojiSpan);
+                        li.appendChild(textSpan);
+                        highscoreList.appendChild(li);
+                    });
+                }
+            }
+
+            // --- Hauptspiel-Loop ---
+
+            function gameLoop() {
+                if (!gameRunning) return;
+
+                // Update ship specific timers
+                if (currentShipEmoji === '☠️') {
+                    skullSpecialShotTimer += 1000 / 60;
+                    if (skullSpecialShotTimer >= skullSpecialShotInterval) {
+                        shootSkullSpecialBullet();
+                        skullSpecialShotTimer = 0;
+                    }
+                }
+
+                if (currentShipEmoji === '🫎') {
+                    mooseItemDropTimer += 1000 / 60;
+                    if (mooseItemDropTimer >= mooseItemDropInterval) {
+                        spawnItem(); // Spawn a random item
+                        mooseItemDropTimer = 0;
+                    }
+                }
+
+                moveBullets();
+                moveEnemiesAndShoot();
+                moveItems();
+                checkCollisions();
+            }
+
+            // --- Event-Listener ---
+
+            // Start Game Button - wählt jetzt das Standardschiff aus (welches startGame aufruft)
+            startGameButton.addEventListener('click', () => {
+                playerName = playerNameInput.value.trim();
+                if (playerName === "") {
+                    playerName = "Spieler";
+                }
+                selectShip(currentShipEmoji); // Wählt das Standard-Schiff und startet das Spiel
+            });
+
+            // Buttons unterhalb des Spielbereichs
+            restartGameButton.addEventListener('click', () => {
+                showShipSelection(); // Zeigt Schiffsauswahl und setzt den Zustand zurück
+            });
+
+            changeNameButton.addEventListener('click', () => {
+                resetGameToStartScreen(); // Geht zum Startbildschirm zurück
+            });
+
+            showHighscoreButton.addEventListener('click', () => {
+                displayHighscore();
+                showScreen(highscoreScreen);
+            });
+
+            // Button auf dem Highscore-Bildschirm
+            highscoreCloseButton.addEventListener('click', () => {
+                 // Prüfen, ob das Spiel läuft oder ob wir vom Game Over Screen kamen
+                 if (gameRunning) { // Falls Highscore während des aktiven Spiels geöffnet wurde
+                    showScreen(gameScreen);
+                 } else { // Falls Highscore vom Game Over oder Start Screen geöffnet wurde
+                    showScreen(gameOverScreen); // Geht standardmäßig zum Game Over Screen zurück, wenn Spiel nicht läuft
+                 }
+            });
+
+
+            // Erstmalige Einrichtung
+            showScreen(startScreen);
+            resetPlayerShip();
+        });
+    </script>
+</body>
+</html>
